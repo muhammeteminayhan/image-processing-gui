@@ -63,6 +63,3 @@ python main.py
 
 ---
 
-## 📜 Lisans
-
-Bu proje MIT lisansı ile lisanslanmıştır.
