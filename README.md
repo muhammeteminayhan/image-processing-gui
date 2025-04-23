@@ -34,7 +34,7 @@ Tüm işlemler el yazımı algoritmalarla gerçekleştirilmiştir.
 ```bash
 pip install -r requirements.txt
 
-![image alt](https://github.com/user-attachments/assets/2008e2e4-e154-4686-8f86-87da9f70e74b)
+[![image alt](https://github.com/user-attachments/assets/2008e2e4-e154-4686-8f86-87da9f70e74b)](https://github.com/muhammeteminayhan/image-processing-gui/blob/d05bf4f38d54cd3040e47fbfc99f2bdf4f1b0ae6/ui.png)
 
 
 
