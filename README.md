@@ -34,7 +34,6 @@ Tüm işlemler el yazımı algoritmalarla gerçekleştirilmiştir.
 ```bash
 pip install -r requirements.txt
 
-![Uygulama Arayüzü](screenshots/ui.png)
 
 
 
