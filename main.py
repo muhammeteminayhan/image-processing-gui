@@ -8,6 +8,139 @@ import numpy as np
 import math
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import random
+
+
+class NoiseAdd(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle('Görüntü İşleme - Gürültü Ekleme ve Filtreleme')
+        self.setGeometry(100, 100, 800, 600)
+
+        self.layout = QVBoxLayout()
+
+        self.image_label = QLabel(self)
+        self.layout.addWidget(self.image_label)
+
+        self.load_button = QPushButton('Görüntü Yükle', self)
+        self.load_button.clicked.connect(self.load_image)
+        self.layout.addWidget(self.load_button)
+
+        self.noise_button = QPushButton('Gürültü Ekle (Salt&Pepper)', self)
+        self.noise_button.clicked.connect(self.add_noise)
+        self.layout.addWidget(self.noise_button)
+
+        self.mean_filter_button = QPushButton('Mean Filtresi Uygula', self)
+        self.mean_filter_button.clicked.connect(self.apply_mean_filter)
+        self.layout.addWidget(self.mean_filter_button)
+
+        self.median_filter_button = QPushButton('Median Filtresi Uygula', self)
+        self.median_filter_button.clicked.connect(self.apply_median_filter)
+        self.layout.addWidget(self.median_filter_button)
+
+        self.setLayout(self.layout)
+
+        self.image = None
+        self.noisy_image = None
+        self.noise_amount = 0.02  # Varsayılan gürültü oranı
+        self.filter_size = 5  # Varsayılan filtre boyutu
+
+    def load_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, 'Görüntü Seç', '',
+                                                   'Görüntü Dosyaları (*.png *.jpg *.bmp *.jpeg)')
+        if file_path:
+            self.image = self.load_and_convert_image(file_path)
+            self.display_image(self.image)
+
+    def load_and_convert_image(self, path):
+        # Görüntüyü numpy array'e dönüştürme
+        img = QImage(path)
+        img = img.convertToFormat(QImage.Format_RGB888)
+        width, height = img.width(), img.height()
+        ptr = img.bits()
+        ptr.setsize(img.byteCount())
+        arr = np.array(ptr).reshape(height, width, 3)
+        return arr
+
+    def display_image(self, img):
+        img_rgb = np.array(img)
+        img_rgb = QImage(img_rgb.data, img_rgb.shape[1], img_rgb.shape[0], img_rgb.strides[0], QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(img_rgb)
+        self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
+
+    def add_noise(self):
+        if self.image is None:
+            return
+
+        # Kullanıcıdan gürültü oranını almak
+        noise_amount, ok = QInputDialog.getDouble(self, "Gürültü Oranı", "Gürültü Oranı (0-1 arasında):",
+                                                  self.noise_amount, 0, 1, 2)
+        if ok:
+            self.noise_amount = noise_amount
+
+        # Gürültü ekleme işlemi
+        noisy_image = np.copy(self.image)
+        s_vs_p = 0.5  # Salt & Pepper oranı
+        amount = self.noise_amount
+        total_pixels = noisy_image.size
+        num_salt = int(amount * total_pixels * s_vs_p)
+        num_pepper = int(amount * total_pixels * (1.0 - s_vs_p))
+
+        # Salt (beyaz piksel) ekle
+        for _ in range(num_salt):
+            row = random.randint(0, noisy_image.shape[0] - 1)
+            col = random.randint(0, noisy_image.shape[1] - 1)
+            noisy_image[row, col] = [255, 255, 255]  # Beyaz
+
+        # Pepper (siyah piksel) ekle
+        for _ in range(num_pepper):
+            row = random.randint(0, noisy_image.shape[0] - 1)
+            col = random.randint(0, noisy_image.shape[1] - 1)
+            noisy_image[row, col] = [0, 0, 0]  # Siyah
+
+        self.noisy_image = noisy_image
+        self.display_image(noisy_image)
+
+    def apply_mean_filter(self):
+        if self.noisy_image is None:
+            return
+
+        # Kullanıcıdan filtre boyutunu almak
+        filter_size, ok = QInputDialog.getInt(self, "Filtre Boyutu", "Filtre Boyutu (3, 5, 7, ...):", self.filter_size,
+                                              3, 11, 2)
+        if ok:
+            self.filter_size = filter_size
+
+        # Mean filtresi (pencere boyutu: filter_size x filter_size)
+        filtered_image = np.copy(self.noisy_image)
+        offset = self.filter_size // 2
+        for i in range(offset, filtered_image.shape[0] - offset):
+            for j in range(offset, filtered_image.shape[1] - offset):
+                region = filtered_image[i - offset:i + offset + 1, j - offset:j + offset + 1]
+                mean_value = np.mean(region, axis=(0, 1))
+                filtered_image[i, j] = mean_value
+        self.display_image(filtered_image)
+
+    def apply_median_filter(self):
+        if self.noisy_image is None:
+            return
+
+        # Kullanıcıdan filtre boyutunu almak
+        filter_size, ok = QInputDialog.getInt(self, "Filtre Boyutu", "Filtre Boyutu (3, 5, 7, ...):", self.filter_size,
+                                              3, 11, 2)
+        if ok:
+            self.filter_size = filter_size
+
+        # Median filtresi (pencere boyutu: filter_size x filter_size)
+        filtered_image = np.copy(self.noisy_image)
+        offset = self.filter_size // 2
+        for i in range(offset, filtered_image.shape[0] - offset):
+            for j in range(offset, filtered_image.shape[1] - offset):
+                region = filtered_image[i - offset:i + offset + 1, j - offset:j + offset + 1]
+                median_value = np.median(region, axis=(0, 1))
+                filtered_image[i, j] = median_value
+        self.display_image(filtered_image)
 
 class ArithmeticWindow(QWidget):
     def __init__(self):
@@ -133,11 +266,6 @@ class ArithmeticWindow(QWidget):
                     result[y, x, c] = min(255, val)
         return result
 
-
-
-
-
-
 class PlotCanvas(FigureCanvas):
     def __init__(self, parent=None):
         self.fig = Figure()
@@ -209,6 +337,9 @@ class ImageProcessorApp(QMainWindow):
         self.btn_arithmetic = QPushButton("Görsel Aritmetik İşlemler")
         self.btn_arithmetic.clicked.connect(self.open_arithmetic_window)
 
+        self.btn_noise = QPushButton("Gürültü Ekle ve Filtrele")
+        self.btn_noise.clicked.connect(self.open_noise_window)
+
         histogram_button = QPushButton("Histogram Germe")
         histogram_button.clicked.connect(self.histogram_equalization)
 
@@ -231,10 +362,10 @@ class ImageProcessorApp(QMainWindow):
         layout_buttons.addWidget(median_button)
         layout_buttons.addWidget(double_threshold_button)
         layout_buttons.addWidget(edge_button)
-        layout_buttons.addWidget(noise_filter_button)
         layout_buttons.addWidget(motion_blur_button)
         layout_buttons.addWidget(morphological_button)
         layout_buttons.addWidget(self.btn_arithmetic)
+        layout_buttons.addWidget(self.btn_noise)
         layout_buttons.addWidget(histogram_button)
         layout_buttons.addWidget(self.histogram_canvas)
 
@@ -464,6 +595,10 @@ class ImageProcessorApp(QMainWindow):
     def open_arithmetic_window(self):
         self.arithmetic_window = ArithmeticWindow()
         self.arithmetic_window.show()
+
+    def open_noise_window(self):
+        self.gurultu_window = NoiseAdd()
+        self.gurultu_window.show()
 
     def adjust_contrast(self):
         if self.image is None:
