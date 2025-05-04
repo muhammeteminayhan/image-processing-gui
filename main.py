@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QComboBox, QInputDialog, QApplication, QMainWindow, QPushButton, QLabel, QFileDialog, \
-    QVBoxLayout, QWidget, QHBoxLayout, QMessageBox
+    QVBoxLayout, QWidget, QHBoxLayout, QMessageBox, QLineEdit
 from PyQt5.QtGui import QPixmap, QImage
 import numpy as np
 import math
@@ -10,6 +10,113 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import random
 
+
+class ZoomWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Görüntü Yakınlaştır/Uzaklaştır")
+        self.setGeometry(100, 100, 800, 600)
+
+        # Layouts
+        self.layout = QVBoxLayout()
+        self.image_layout = QHBoxLayout()
+
+        # Görüntü etiketleri
+        self.image_label = QLabel(self)
+        self.result_label = QLabel(self)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.result_label.setAlignment(Qt.AlignCenter)
+
+        # Görüntü yükleme butonu
+        self.load_button = QPushButton("Görüntü Yükle", self)
+        self.load_button.clicked.connect(self.load_image)
+
+        # Yakınlaştırma ve uzaklaştırma butonları birleştirildi
+        self.zoom_button = QPushButton("Yakınlaştır/Uzaklaştır", self)
+        self.zoom_button.clicked.connect(self.ask_zoom_factor)
+
+        # Layout düzenlemeleri
+        self.layout.addWidget(self.load_button)
+        self.image_layout.addWidget(self.image_label)
+        self.image_layout.addWidget(self.result_label)
+        self.layout.addLayout(self.image_layout)
+        self.layout.addWidget(self.zoom_button)
+
+        self.setLayout(self.layout)
+
+        # Başlangıçta bu değişkenler tanımlanıyor
+        self.original_pixmap = None
+        self.zoom_factor = 1.0
+
+    def load_image(self):
+        # Kullanıcıdan dosya seçmesini istiyoruz
+        file_name, _ = QFileDialog.getOpenFileName(self, "Görüntü Yükle", "", "Images (*.png *.jpg *.bmp)")
+        if file_name:
+            self.original_pixmap = QPixmap(file_name)
+            self.image_label.setPixmap(self.original_pixmap)
+            self.result_label.setPixmap(self.original_pixmap)
+
+            # Görüntü label'ının maksimum genişliği 400 px olacak şekilde ayarlandı
+            self.image_label.setMaximumWidth(400)
+            self.result_label.setMaximumWidth(400)
+
+    def ask_zoom_factor(self):
+        # QInputDialog ile yakınlaştırma/uzaklaştırma oranını soruyoruz
+        text, ok = QInputDialog.getText(self, "Yakınlaştır/Uzaklaştır",
+                                        "Yakınlaştırma faktörünü girin (Örn: 1x, 0.5x, 2x):")
+
+        if ok and text:
+            self.apply_zoom(text)
+
+    def apply_zoom(self, zoom_factor):
+        try:
+            # Kullanıcıdan alınan oranı sayıya dönüştür
+            if zoom_factor[-1] == 'x':  # 'x' ile biten bir değer bekliyoruz
+                self.zoom_factor = float(zoom_factor[:-1])
+
+                # Yeni genişlik ve yükseklik hesaplama
+                new_width = self.original_pixmap.width() * self.zoom_factor
+                new_height = self.original_pixmap.height() * self.zoom_factor
+
+                # Yalnızca belirli sınırlar içinde zoom yapılmasını sağlıyoruz
+                new_width = max(50, new_width)
+                new_height = max(50, new_height)
+
+                # Yeni pixmap'ı oluştur
+                zoomed_pixmap = self.original_pixmap.scaled(new_width, new_height, Qt.KeepAspectRatio)
+
+                # Etiketin gösterim alanına uygun kısmı kesiyoruz
+                self.show_zoomed_image(zoomed_pixmap)
+            else:
+                print("Geçersiz zoom faktörü formatı! (Örn: 1x, 0.5x, 2x)")
+        except ValueError:
+            print("Geçersiz zoom değeri!")
+
+    def show_zoomed_image(self, zoomed_pixmap):
+        # Görüntü boyutunun merkezini tutarak, etiketin gösterim alanına uygun kısmı kes
+        image_width = zoomed_pixmap.width()
+        image_height = zoomed_pixmap.height()
+
+        # Görüntü merkezini belirle
+        center_x = image_width // 2
+        center_y = image_height // 2
+
+        # Etiketin boyutu (400x400 olarak belirledik)
+        label_width = self.result_label.width()
+        label_height = self.result_label.height()
+
+        # Etiketin gösterim alanını belirle
+        left = max(0, center_x - label_width // 2)
+        top = max(0, center_y - label_height // 2)
+
+        # Sağ ve alt kenarları sınırla
+        right = min(image_width, left + label_width)
+        bottom = min(image_height, top + label_height)
+
+        # Görüntünün kesilen kısmını etiket üzerinde göster
+        cropped_image = zoomed_pixmap.copy(left, top, right - left, bottom - top)
+        self.result_label.setPixmap(cropped_image)
 
 class NoiseAdd(QWidget):
     def __init__(self):
@@ -306,8 +413,9 @@ class ImageProcessorApp(QMainWindow):
         crop_button = QPushButton("Görüntü Kırp")
         crop_button.clicked.connect(self.crop_image)
 
-        zoom_button = QPushButton("Görüntü Yaklaştır/Uzaklaştır")
-        zoom_button.clicked.connect(self.zoom_image)
+        btn_zoom = QPushButton("Görsel Yakınlaştır/Uzaklaştır")
+        btn_zoom.clicked.connect(self.open_zoom_dialog)
+
 
         color_space_button = QPushButton("Renk Uzayı Dönüşümü")
         color_space_button.clicked.connect(self.convert_color_space)
@@ -315,7 +423,7 @@ class ImageProcessorApp(QMainWindow):
         contrast_button = QPushButton("Kontrast Ayarla")
         contrast_button.clicked.connect(self.adjust_contrast)
 
-        median_button = QPushButton("Medyan Filtresi")
+        median_button = QPushButton("Median Filtresi")
         median_button.clicked.connect(self.apply_median_filter_button)
 
         double_threshold_button = QPushButton("Çift Eşikleme")
@@ -356,7 +464,7 @@ class ImageProcessorApp(QMainWindow):
         layout_buttons.addWidget(binary_button)
         layout_buttons.addWidget(rotate_button)
         layout_buttons.addWidget(crop_button)
-        layout_buttons.addWidget(zoom_button)
+        layout_buttons.addWidget(btn_zoom)
         layout_buttons.addWidget(color_space_button)
         layout_buttons.addWidget(contrast_button)
         layout_buttons.addWidget(median_button)
@@ -402,15 +510,25 @@ class ImageProcessorApp(QMainWindow):
         if img_array is None:
             return
 
-        if len(img_array.shape) == 2:  # Gri tonluysa
+        # Eğer tek kanal (grayscale) ise RGB'ye dönüştür
+        if len(img_array.shape) == 2:  # Gri tonlamalı görüntü
             img_array = np.stack((img_array,) * 3, axis=-1)  # Gri -> RGB
 
+        # NumPy dizisini bytes formatına dönüştürme
         h, w, ch = img_array.shape
         bytes_per_line = ch * w
-        qimg = QImage(img_array.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        img_data = img_array.tobytes()  # NumPy array'ini byte formatına dönüştür
+
+        # QImage'e byte verisini geçirme
+        qimg = QImage(img_data, w, h, bytes_per_line, QImage.Format_RGB888)
+
+        # Görüntüyü QLabel üzerine yerleştirme
         pixmap = QPixmap.fromImage(qimg)
         pixmap = pixmap.scaled(self.label.width(), self.label.height(), Qt.KeepAspectRatio)
         self.label.setPixmap(pixmap)
+
+        # QLabel'ı yeniden çizme
+        self.label.repaint()
 
     def convert_to_grayscale(self):
         if self.image is not None:
@@ -491,24 +609,6 @@ class ImageProcessorApp(QMainWindow):
 
             cropped = self.image[y:y + crop_h, x:x + crop_w]
             self.display_image(cropped)
-
-    def zoom_image(self):
-        if self.image is not None:
-            scale, ok = QInputDialog.getDouble(self, "Yaklaştır/Uzaklaştır",
-                                               "Ölçek oranı girin (örn. 2.0 = büyüt, 0.5 = küçült)", 1.0, 0.1, 10.0, 2)
-            if ok:
-                h, w, c = self.image.shape
-                new_h, new_w = int(h * scale), int(w * scale)
-
-                zoomed = np.zeros((new_h, new_w, c), dtype=np.uint8)
-
-                for y in range(new_h):
-                    for x in range(new_w):
-                        src_x = min(int(x / scale), w - 1)
-                        src_y = min(int(y / scale), h - 1)
-                        zoomed[y, x] = self.image[src_y, src_x]
-
-                self.display_image(zoomed)
 
     def rgb_to_hsv(self, rgb):
         r, g, b = rgb / 255.0  # Normalize the RGB values
@@ -599,6 +699,10 @@ class ImageProcessorApp(QMainWindow):
     def open_noise_window(self):
         self.gurultu_window = NoiseAdd()
         self.gurultu_window.show()
+
+    def open_zoom_dialog(self):
+        self.zoom_dialog = ZoomWindow()
+        self.zoom_dialog.show()
 
     def adjust_contrast(self):
         if self.image is None:
