@@ -1,15 +1,83 @@
 import sys
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QComboBox, QInputDialog, QApplication, QMainWindow, QPushButton, QLabel, QFileDialog, \
-    QVBoxLayout, QWidget, QHBoxLayout, QMessageBox, QLineEdit
-from PyQt5.QtGui import QPixmap, QImage
+    QVBoxLayout, QWidget, QHBoxLayout, QMessageBox, QLineEdit, QProgressBar
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QLinearGradient, QColor, QBrush
 import numpy as np
 import math
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import random
 
+class SplashScreen(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Splash Screen")
+        self.setGeometry(0, 0, 1200, 830)
+        self.setWindowFlag(Qt.FramelessWindowHint)  # Pencere çerçevesini kaldırıyoruz
+        self.setAttribute(Qt.WA_TranslucentBackground)  # Arka planı şeffaf yapıyoruz
+
+        self.layout = QVBoxLayout(self)
+
+        self.label = QLabel("HOŞGELDİNİZ", self)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("font-size: 48px; font-weight: bold; color: white;")
+        self.layout.addWidget(self.label)
+
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setFixedHeight(40)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid gray;
+                border-radius: 5px;
+                text-align: center;
+                background-color: #F3F3F3;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                width: 20px;
+                margin: 0.5px;
+            }
+        """)
+        self.layout.addWidget(self.progress_bar)
+
+        self.layout.setAlignment(Qt.AlignCenter)
+        self.layout.setSpacing(30)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_progress)
+        self.timer.start(50)
+
+        self.progress_value = 0
+
+    def paintEvent(self, event):
+        # Mor gradyan arka plan
+        painter = QPainter(self)
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(75, 0, 130))  # Mor rengin başlangıcı
+        gradient.setColorAt(1, QColor(138, 43, 226))  # Mor rengin bitişi
+        brush = QBrush(gradient)
+        painter.setBrush(brush)
+        painter.setPen(Qt.transparent)
+        painter.drawRect(self.rect())
+
+    def update_progress(self):
+        self.progress_value += 1
+        self.progress_bar.setValue(self.progress_value)
+
+        if self.progress_value >= 100:
+            self.timer.stop()
+            self.close()  # Splash ekranını kapat
+            self.open_main_window()
+
+    def open_main_window(self):
+        # Ana uygulama penceresini başlat
+        self.main_window = ImageProcessorApp()
+        self.main_window.show()
 
 class ZoomWindow(QWidget):
     def __init__(self):
@@ -380,7 +448,6 @@ class PlotCanvas(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
 
-
 class ImageProcessorApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -448,7 +515,7 @@ class ImageProcessorApp(QMainWindow):
         self.btn_noise = QPushButton("Gürültü Ekle ve Filtrele")
         self.btn_noise.clicked.connect(self.open_noise_window)
 
-        histogram_button = QPushButton("Histogram Germe")
+        histogram_button = QPushButton("Histogram Eşitleme")
         histogram_button.clicked.connect(self.histogram_equalization)
 
         self.histogram_canvas = PlotCanvas(self)
@@ -464,7 +531,6 @@ class ImageProcessorApp(QMainWindow):
         layout_buttons.addWidget(binary_button)
         layout_buttons.addWidget(rotate_button)
         layout_buttons.addWidget(crop_button)
-        layout_buttons.addWidget(btn_zoom)
         layout_buttons.addWidget(color_space_button)
         layout_buttons.addWidget(contrast_button)
         layout_buttons.addWidget(median_button)
@@ -474,6 +540,7 @@ class ImageProcessorApp(QMainWindow):
         layout_buttons.addWidget(morphological_button)
         layout_buttons.addWidget(self.btn_arithmetic)
         layout_buttons.addWidget(self.btn_noise)
+        layout_buttons.addWidget(btn_zoom)
         layout_buttons.addWidget(histogram_button)
         layout_buttons.addWidget(self.histogram_canvas)
 
@@ -484,6 +551,36 @@ class ImageProcessorApp(QMainWindow):
         container = QWidget()
         container.setLayout(layout_main)
         self.setCentralWidget(container)
+
+        self.setStyleSheet("""
+                    QPushButton {
+                        background-color: #ffffff;
+                        border: 2px solid #4CAF50;
+                        border-radius: 4px;
+                        color: #333333;
+                        font: bold;
+                        font-size: 14px;
+                    }
+
+                    QPushButton:hover {
+                        background-color: #eeeeee;
+                    }
+
+                    QPushButton:pressed {
+                        background-color: #cccccc;
+                    }
+                """)
+
+    def paintEvent(self, event):
+        # Mor gradyan arka plan
+        painter = QPainter(self)
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(75, 0, 130))  # Sol tarafta koyu mor (başlangıç)
+        gradient.setColorAt(1, QColor(204, 153, 255))  # Sağ tarafta daha açık mor (bitiş)
+        brush = QBrush(gradient)
+        painter.setBrush(brush)
+        painter.setPen(Qt.transparent)
+        painter.drawRect(self.rect())
 
     def load_image(self):
         path, _ = QFileDialog.getOpenFileName(self, "Görüntü Seç", "", "Image Files (*.png *.jpg *.bmp)")
@@ -1195,9 +1292,11 @@ class ImageProcessorApp(QMainWindow):
         self.image = result_image
         self.display_image(result_image)
 
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ImageProcessorApp()
-    window.show()
+
+    # Splash Screen başlat
+    splash = SplashScreen()
+    splash.show()
+
     sys.exit(app.exec_())
