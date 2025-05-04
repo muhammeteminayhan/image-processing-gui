@@ -1,4 +1,4 @@
-# 🖼️ Görüntü İşleme Arayüzü (Python - PyQt5)
+# 🖼️ Görüntü İşleme Algoritmaları (Python - PyQt5)
 
 Bu projede, PyQt5 ile geliştirilmiş kullanıcı arayüzü üzerinden çalışan bir görüntü işleme uygulaması yer almaktadır. Proje kapsamında, **hazır kütüphane fonksiyonları kullanılmadan**, temel görüntü işleme algoritmaları sıfırdan yazılmıştır.
 
