@@ -571,6 +571,7 @@ class ImageProcessorApp(QMainWindow):
                     }
                 """)
 
+    # Gradyan Temizleme Butonu
     def paintEvent(self, event):
         # Mor gradyan arka plan
         painter = QPainter(self)
@@ -582,12 +583,14 @@ class ImageProcessorApp(QMainWindow):
         painter.setPen(Qt.transparent)
         painter.drawRect(self.rect())
 
+    # Görüntü Yükleme Butonu
     def load_image(self):
         path, _ = QFileDialog.getOpenFileName(self, "Görüntü Seç", "", "Image Files (*.png *.jpg *.bmp)")
         if path:
             self.image = self.imread(path)
             self.display_image(self.image)
 
+    # Görüntü Temizleme Butonu
     def clear_image(self):
         """
         Yüklenen resmi ve tüm işlenmiş verileri temizler.
@@ -603,6 +606,7 @@ class ImageProcessorApp(QMainWindow):
         img = Image.open(path).convert("RGB")
         return np.array(img)
 
+    # Görüntü QLabel'a çizdirme butonu
     def display_image(self, img_array):
         if img_array is None:
             return
@@ -627,24 +631,14 @@ class ImageProcessorApp(QMainWindow):
         # QLabel'ı yeniden çizme
         self.label.repaint()
 
+    # Gri Dönüşüm Butonu
     def convert_to_grayscale(self):
         if self.image is not None:
             gray = np.dot(self.image[...,:3], [0.299, 0.587, 0.114]).astype(np.uint8)
             gray_rgb = np.stack((gray,)*3, axis=-1)
             self.display_image(gray_rgb)
 
-    def convert_to_grayscale_array(self, image):
-        """
-        Görüntüyü gri tonlamaya çeviren fonksiyon.
-        Bu versiyon, numpy array döndüren bir fonksiyon olacak.
-        """
-        if image is None:
-            return None
-
-        # Görüntüyü gri tonlamaya dönüştürmek için ağırlıklı ortalama yöntemi kullanıyoruz.
-        gray = np.dot(image[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
-        return gray
-
+    # Binary Dönüşüm Butonu
     def binary_threshold(self):
         if self.image is not None:
             # Kullanıcıdan threshold değeri al
@@ -655,14 +649,7 @@ class ImageProcessorApp(QMainWindow):
                 binary_rgb = np.stack((binary,) * 3, axis=-1)
                 self.display_image(binary_rgb)
 
-    def binarize_image(self, gray_image, threshold_value=127):
-        """
-        Gri tonlamalı görüntüyü ikili görüntüye dönüştürür.
-        threshold_value: Eşik değeri (default: 127).
-        """
-        binary_image = np.where(gray_image >= threshold_value, 255, 0).astype(np.uint8)
-        return binary_image
-
+    # Görüntü Döndürme Butonu
     def rotate_image(self):
         if self.image is not None:
             angle, ok = QInputDialog.getDouble(self, "Açı Girin", "Görüntüyü kaç derece döndürmek istersiniz?", 90,
@@ -691,6 +678,7 @@ class ImageProcessorApp(QMainWindow):
 
                 self.display_image(rotated)
 
+    # Görüntü Kırpma Butonu
     def crop_image(self):
         if self.image is not None:
             h, w, _ = self.image.shape
@@ -707,6 +695,24 @@ class ImageProcessorApp(QMainWindow):
             cropped = self.image[y:y + crop_h, x:x + crop_w]
             self.display_image(cropped)
 
+    # Renk Uzak Butonu - 1
+    def convert_color_space(self):
+        if self.image is not None:
+            conversion_type, ok = QInputDialog.getItem(self, "Renk Uzayı Dönüşümü", "Dönüşüm tipi seçin:",
+                                                       ["RGB to HSV", "RGB to Grayscale"], 0, False)
+            if ok:
+                if conversion_type == "RGB to HSV":
+                    hsv_image = np.zeros_like(self.image)
+                    for i in range(self.image.shape[0]):
+                        for j in range(self.image.shape[1]):
+                            hsv_image[i, j] = self.rgb_to_hsv(self.image[i, j])
+                    self.display_image(hsv_image)
+                elif conversion_type == "RGB to Grayscale":
+                    grayscale_image = np.dot(self.image[..., :3], [0.299, 0.587, 0.114])  # Convert RGB to grayscale
+                    grayscale_image = np.stack((grayscale_image,) * 3, axis=-1)  # Convert back to 3 channels
+                    self.display_image(grayscale_image.astype(np.uint8))
+
+    # Renk Uzay Butonu - 2
     def rgb_to_hsv(self, rgb):
         r, g, b = rgb / 255.0  # Normalize the RGB values
         c_max = max(r, g, b)
@@ -731,76 +737,7 @@ class ImageProcessorApp(QMainWindow):
 
         return np.array([h, s * 100, v * 100])  # Return HSV in degrees and percentages
 
-    def convert_color_space(self):
-        if self.image is not None:
-            conversion_type, ok = QInputDialog.getItem(self, "Renk Uzayı Dönüşümü", "Dönüşüm tipi seçin:",
-                                                       ["RGB to HSV", "RGB to Grayscale"], 0, False)
-            if ok:
-                if conversion_type == "RGB to HSV":
-                    hsv_image = np.zeros_like(self.image)
-                    for i in range(self.image.shape[0]):
-                        for j in range(self.image.shape[1]):
-                            hsv_image[i, j] = self.rgb_to_hsv(self.image[i, j])
-                    self.display_image(hsv_image)
-                elif conversion_type == "RGB to Grayscale":
-                    grayscale_image = np.dot(self.image[..., :3], [0.299, 0.587, 0.114])  # Convert RGB to grayscale
-                    grayscale_image = np.stack((grayscale_image,) * 3, axis=-1)  # Convert back to 3 channels
-                    self.display_image(grayscale_image.astype(np.uint8))
-
-    def histogram_equalization(self):
-        if self.image is not None:
-            # 1. Grayscale görüntü oluşturma
-            gray_image = np.dot(self.image[..., :3], [0.299, 0.587, 0.114])
-
-            # 2. Kullanıcıdan min ve max değerlerini al
-            min_val, ok1 = QInputDialog.getInt(self, "Histogram Parametreleri", "Minimum Değer Girin (0-255)", 0, 0,
-                                               255, 1)
-            max_val, ok2 = QInputDialog.getInt(self, "Histogram Parametreleri", "Maksimum Değer Girin (0-255)", 255, 0,
-                                               255, 1)
-
-            if ok1 and ok2:
-                # 3. Histogram hesaplama ve normalizasyon
-                hist, bins = np.histogram(gray_image.flatten(), 256, [0, 256])
-                cdf = hist.cumsum()  # Kümülatif dağılım fonksiyonu
-                cdf_normalized = cdf * (max_val - min_val) / cdf[-1] + min_val  # Normalize et
-
-                # 4. Histogram germe
-                img_equalized = np.interp(gray_image.flatten(), bins[:-1], cdf_normalized)
-                img_equalized = img_equalized.reshape(gray_image.shape)
-
-                # 5. RGB'ye dönüşüm
-                equalized_image = np.stack((img_equalized,) * 3, axis=-1)
-
-                # 6. Histogramları çizme
-                self.plot_histogram(gray_image, equalized_image)
-
-                # 7. Görüntüleri gösterme
-                self.display_image(equalized_image.astype(np.uint8))
-
-    def plot_histogram(self, original_image, equalized_image):
-        # 1. Orijinal ve eşitlenmiş histogramları hesapla
-        hist_orig, bins_orig = np.histogram(original_image.flatten(), 256, [0, 256])
-        hist_equalized, bins_equalized = np.histogram(equalized_image.flatten(), 256, [0, 256])
-
-        # 2. Histogramları çiz
-        self.histogram_canvas.axes.clear()
-        self.histogram_canvas.axes.plot(bins_orig[:-1], hist_orig, color='blue', label='Orijinal Histogram')
-        self.histogram_canvas.axes.plot(bins_equalized[:-1], hist_equalized, color='red', label='Eşitlenmiş Histogram')
-        self.histogram_canvas.axes.legend()
-        self.histogram_canvas.draw()
-
-    def open_arithmetic_window(self):
-        self.arithmetic_window = ArithmeticWindow()
-        self.arithmetic_window.show()
-
-    def open_noise_window(self):
-        self.gurultu_window = NoiseAdd()
-        self.gurultu_window.show()
-
-    def open_zoom_dialog(self):
-        self.zoom_dialog = ZoomWindow()
-        self.zoom_dialog.show()
-
+    # Kontrast Ayarlama Butonu - 1
     def adjust_contrast(self):
         if self.image is None:
             QMessageBox.warning(self, "Uyarı", "Lütfen önce bir görüntü yükleyin.")
@@ -812,6 +749,7 @@ class ImageProcessorApp(QMainWindow):
             self.image = self.adjust_contrast_algorithm(self.image, contrast_value)
             self.display_image(self.image)
 
+    # Kontrast Ayarlama Butonu - 2
     def adjust_contrast_algorithm(self, image, contrast_value):
         # image bir NumPy array
         height, width = image.shape[:2]
@@ -831,6 +769,28 @@ class ImageProcessorApp(QMainWindow):
 
         return new_image
 
+    # Median Filtresi Butonu - 1
+    def apply_median_filter_button(self):
+        if self.image is None:
+            QMessageBox.warning(self, "Uyarı", "Lütfen önce bir görüntü yükleyin.")
+            return
+
+        # Kullanıcıdan kernel boyutu al
+        kernel_size, ok = QInputDialog.getInt(
+            self, "Medyan Filtresi",
+            "Kernel (Pencere) Boyutu Girin (tek sayı, örn: 3, 5, 7):",
+            3, 3, 15, 2
+        )
+
+        if ok:
+            if kernel_size % 2 == 0:
+                QMessageBox.warning(self, "Hatalı Giriş", "Lütfen TEK sayı girin!")
+                return
+
+            self.image = self.apply_median_filter(self.image, kernel_size)
+            self.display_image(self.image)
+
+    # Median Filtresi Butonu - 2
     def apply_median_filter(self, image, kernel_size=3):
         pad = kernel_size // 2
         height, width = image.shape[:2]
@@ -856,26 +816,7 @@ class ImageProcessorApp(QMainWindow):
 
         return new_image
 
-    def apply_median_filter_button(self):
-        if self.image is None:
-            QMessageBox.warning(self, "Uyarı", "Lütfen önce bir görüntü yükleyin.")
-            return
-
-        # Kullanıcıdan kernel boyutu al
-        kernel_size, ok = QInputDialog.getInt(
-            self, "Medyan Filtresi",
-            "Kernel (Pencere) Boyutu Girin (tek sayı, örn: 3, 5, 7):",
-            3, 3, 15, 2
-        )
-
-        if ok:
-            if kernel_size % 2 == 0:
-                QMessageBox.warning(self, "Hatalı Giriş", "Lütfen TEK sayı girin!")
-                return
-
-            self.image = self.apply_median_filter(self.image, kernel_size)
-            self.display_image(self.image)
-
+    # Çift Eşikleme Butonu - 1
     def apply_double_threshold_button(self):
         if self.image is None:
             QMessageBox.warning(self, "Uyarı", "Lütfen önce bir görüntü yükleyin.")
@@ -900,6 +841,7 @@ class ImageProcessorApp(QMainWindow):
         self.image = self.double_threshold(self.image, t_low, t_high, mid_value)
         self.display_image(self.image)
 
+    # Çift Eşikleme butonu - 2
     def double_threshold(self, image, t_low, t_high, mid_value=127):
         if len(image.shape) == 3:
             # Griye çevir
@@ -920,6 +862,29 @@ class ImageProcessorApp(QMainWindow):
 
         return new_image
 
+    # Kenar Bulma(Canny) Butonu - 1
+    def canny_edge_detection(self):
+        if self.image is None:
+            return
+
+        gray = np.dot(self.image[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
+
+        ksize, ok1 = QInputDialog.getInt(self, "Gaussian Çekirdek Boyutu", "Tek sayı girin (örn. 3, 5, 7):", 5)
+        sigma, ok2 = QInputDialog.getDouble(self, "Sigma Değeri", "Gaussian için sigma değeri:", 1.0)
+        low_thres, ok3 = QInputDialog.getInt(self, "Düşük Eşik", "0-255 arası:", 50)
+        high_thres, ok4 = QInputDialog.getInt(self, "Yüksek Eşik", "0-255 arası:", 150)
+
+        if not (ok1 and ok2 and ok3 and ok4): return
+
+        blurred = self.apply_gaussian_filter(gray, ksize, sigma)
+        mag, dir = self.compute_gradients(blurred)
+        suppressed = self.non_maximum_suppression(mag, dir)
+        final_edges = self.threshold_hysteresis(suppressed, low_thres, high_thres)
+
+        edge_rgb = np.stack((final_edges,) * 3, axis=-1)
+        self.display_image(edge_rgb)
+
+    # Kenar Bulma(Canny) Butonu - 2
     def apply_gaussian_filter(self, image, kernel_size=5, sigma=1.0):
         from math import exp, pi
         # 2D Gaussian kernel oluştur
@@ -941,6 +906,7 @@ class ImageProcessorApp(QMainWindow):
 
         return filtered.astype(np.uint8)
 
+    # Kenar Bulma(Canny) Butonu - 3
     def compute_gradients(self, image):
         Kx = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
         Ky = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
@@ -954,6 +920,25 @@ class ImageProcessorApp(QMainWindow):
         direction = np.arctan2(Iy, Ix)
         return magnitude.astype(np.uint8), direction
 
+    # Kenar Bulma(Canny) Butonu - 3.1(.convolve)
+    def convolve(self, image, kernel):
+        img_h, img_w = image.shape
+        k_h, k_w = kernel.shape
+        pad_h = k_h // 2
+        pad_w = k_w // 2
+
+        padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
+        output = np.zeros_like(image)
+
+        for i in range(img_h):
+            for j in range(img_w):
+                region = padded_image[i:i + k_h, j:j + k_w]
+                output[i, j] = np.sum(region * kernel)
+
+        output = np.clip(output, 0, 255).astype(np.uint8)
+        return output
+
+    # Kenar Bulma(Canny) Butonu - 4
     def non_maximum_suppression(self, magnitude, direction):
         Z = np.zeros_like(magnitude, dtype=np.uint8)
         angle = direction * 180. / np.pi
@@ -990,6 +975,7 @@ class ImageProcessorApp(QMainWindow):
                     pass
         return Z
 
+    # Kenar Bulma(Canny) Butonu - 5
     def threshold_hysteresis(self, image, lowThreshold, highThreshold):
         M, N = image.shape
         res = np.zeros((M, N), dtype=np.uint8)
@@ -1016,43 +1002,266 @@ class ImageProcessorApp(QMainWindow):
                         res[i, j] = 0
         return res
 
-    def canny_edge_detection(self):
+    # Motion Blur Butonu - 1
+    def apply_motion_blur(self):
         if self.image is None:
             return
 
-        gray = np.dot(self.image[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
+        # Kullanıcıdan kernel boyutunu al
+        kernel_size, ok1 = QInputDialog.getInt(self, "Kernel Boyutu", "Kernel boyutunu girin (tek sayı):", 5, 1, 15)
+        if not ok1:
+            return
 
-        ksize, ok1 = QInputDialog.getInt(self, "Gaussian Çekirdek Boyutu", "Tek sayı girin (örn. 3, 5, 7):", 5)
-        sigma, ok2 = QInputDialog.getDouble(self, "Sigma Değeri", "Gaussian için sigma değeri:", 1.0)
-        low_thres, ok3 = QInputDialog.getInt(self, "Düşük Eşik", "0-255 arası:", 50)
-        high_thres, ok4 = QInputDialog.getInt(self, "Yüksek Eşik", "0-255 arası:", 150)
+        # Kullanıcıdan hareket yönünü al
+        direction, ok2 = QInputDialog.getItem(self, "Hareket Yönü", "Hareket yönünü seçin:",
+                                              ["Yatay", "Dikey", "Özel Açılı"], 0, False)
+        if not ok2:
+            return
 
-        if not (ok1 and ok2 and ok3 and ok4): return
+        if direction == "Yatay":
+            kernel = self.create_motion_kernel(kernel_size, "horizontal")
+        elif direction == "Dikey":
+            kernel = self.create_motion_kernel(kernel_size, "vertical")
+        else:
+            # Kullanıcıdan açı girilsin
+            angle, ok3 = QInputDialog.getInt(self, "Açı", "Hareket açısını girin (0-180):", 45, 0, 180)
+            if not ok3:
+                return
+            kernel = self.create_motion_kernel(kernel_size, angle)
 
-        blurred = self.apply_gaussian_filter(gray, ksize, sigma)
-        mag, dir = self.compute_gradients(blurred)
-        suppressed = self.non_maximum_suppression(mag, dir)
-        final_edges = self.threshold_hysteresis(suppressed, low_thres, high_thres)
+        # Uygulanan kernel ile konvolüsyon işlemi
+        blurred_image = self.apply_convolution(self.image, kernel)
 
-        edge_rgb = np.stack((final_edges,) * 3, axis=-1)
-        self.display_image(edge_rgb)
+        self.image = blurred_image
+        self.display_image(blurred_image)
 
-    def convolve(self, image, kernel):
-        img_h, img_w = image.shape
-        k_h, k_w = kernel.shape
-        pad_h = k_h // 2
-        pad_w = k_w // 2
+    # Motion Blur Butonu - 2
+    def create_motion_kernel(self, size, direction_or_angle):
+        # Hareket yönüne veya açıya göre kernel oluşturma
+        kernel = np.zeros((size, size))
 
-        padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
+        if direction_or_angle == "horizontal":
+            kernel[int((size - 1) / 2), :] = np.ones(size)  # Yatay hareket
+        elif direction_or_angle == "vertical":
+            kernel[:, int((size - 1) / 2)] = np.ones(size)  # Dikey hareket
+        else:
+            # Açıya göre kernel oluşturma
+            angle = np.deg2rad(direction_or_angle)
+            center = size // 2
+            for i in range(size):
+                for j in range(size):
+                    dx = int(np.cos(angle) * (i - center) - np.sin(angle) * (j - center))
+                    dy = int(np.sin(angle) * (i - center) + np.cos(angle) * (j - center))
+                    if 0 <= dx + center < size and 0 <= dy + center < size:
+                        kernel[dx + center, dy + center] = 1
+
+        # Kernel toplamını normalize et (toplam 1 olsun)
+        return kernel / np.sum(kernel)
+
+    # Motion Blur Butonu - 3
+    def apply_convolution(self, image, kernel):
+        # Görüntüye konvolüsyon işlemi yapan fonksiyon
+        height, width, channels = image.shape
+        kernel_height, kernel_width = kernel.shape
+        pad_height = kernel_height // 2
+        pad_width = kernel_width // 2
+
+        # Görüntüye padding ekle
+        padded_image = np.pad(image, ((pad_height, pad_height), (pad_width, pad_width), (0, 0)), mode='constant',
+                              constant_values=0)
+
+        # Çıktı görüntüsünü oluştur
         output = np.zeros_like(image)
 
-        for i in range(img_h):
-            for j in range(img_w):
-                region = padded_image[i:i + k_h, j:j + k_w]
-                output[i, j] = np.sum(region * kernel)
+        for i in range(height):
+            for j in range(width):
+                for k in range(channels):
+                    # Kernel'i görüntü üzerinde kaydır
+                    region = padded_image[i:i + kernel_height, j:j + kernel_width, k]
+                    output[i, j, k] = np.sum(region * kernel)
 
-        output = np.clip(output, 0, 255).astype(np.uint8)
-        return output
+        return output.astype(np.uint8)
+
+    # Morfolojik İşlmeler Butonu - 1
+    def apply_morphological_operations(self):
+        if self.image is None:
+            return
+
+        # Kullanıcıdan işlem türünü al
+        operation, ok1 = QInputDialog.getItem(self, "İşlem Türü", "İşlem türünü seçin:",
+                                              ["Genişleme", "Aşınma", "Açma", "Kapama"], 0, False)
+        if not ok1:
+            return
+
+        # Kullanıcıdan kernel boyutunu al
+        kernel_size, ok2 = QInputDialog.getInt(self, "Kernel Boyutu", "Kernel boyutunu girin (tek sayı):", 3, 1, 15)
+        if not ok2:
+            return
+
+        # Gri tonlama (binary image) öncesi kontrol
+        gray = self.convert_to_grayscale_array(self.image)  # Gri tonlama işlemi
+        binary_image = self.binarize_image(gray, threshold_value=127)  # İkili (binary) dönüşüm
+
+        # Kernel oluşturma
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        # Seçilen işleme göre fonksiyon çağrılır
+        if operation == "Genişleme":
+            result_image = self.dilation(binary_image, kernel)
+        elif operation == "Aşınma":
+            result_image = self.erosion(binary_image, kernel)
+        elif operation == "Açma":
+            result_image = self.opening(binary_image, kernel)
+        elif operation == "Kapama":
+            result_image = self.closing(binary_image, kernel)
+
+        self.image = result_image
+        self.display_image(result_image)
+
+    # Morfolojik İşlmeler Butonu - 1.1 (Gri Dönüşüm)
+    def convert_to_grayscale_array(self, image):
+        """
+        Görüntüyü gri tonlamaya çeviren fonksiyon.
+        Bu versiyon, numpy array döndüren bir fonksiyon olacak.
+        """
+        if image is None:
+            return None
+
+        # Görüntüyü gri tonlamaya dönüştürmek için ağırlıklı ortalama yöntemi kullanıyoruz.
+        gray = np.dot(image[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
+        return gray
+
+    # Morfolojik İşlmeler Butonu - 1.2 (Binary Dönüşüm)
+    def binarize_image(self, gray_image, threshold_value=127):
+        """
+        Gri tonlamalı görüntüyü ikili görüntüye dönüştürür.
+        threshold_value: Eşik değeri (default: 127).
+        """
+        binary_image = np.where(gray_image >= threshold_value, 255, 0).astype(np.uint8)
+        return binary_image
+
+    # Morfolojik İşlmeler Butonu - 2
+    def dilation(self, binary_image, kernel):
+        """
+        Genişleme (Dilation) işlemi
+        """
+        image_height, image_width = binary_image.shape
+        kernel_height, kernel_width = kernel.shape
+        pad_height = kernel_height // 2
+        pad_width = kernel_width // 2
+
+        # Görüntüye padding ekliyoruz
+        padded_image = np.pad(binary_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant',
+                              constant_values=0)
+
+        dilated_image = np.zeros_like(binary_image)
+
+        for i in range(image_height):
+            for j in range(image_width):
+                region = padded_image[i:i + kernel_height, j:j + kernel_width]
+                dilated_image[i, j] = np.max(region * kernel)
+
+        return dilated_image
+
+    # Morfolojik İşlmeler Butonu - 3
+    def erosion(self, binary_image, kernel):
+        """
+        Aşınma (Erosion) işlemi
+        """
+        image_height, image_width = binary_image.shape
+        kernel_height, kernel_width = kernel.shape
+        pad_height = kernel_height // 2
+        pad_width = kernel_width // 2
+
+        # Görüntüye padding ekliyoruz
+        padded_image = np.pad(binary_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant',
+                              constant_values=0)
+
+        eroded_image = np.zeros_like(binary_image)
+
+        for i in range(image_height):
+            for j in range(image_width):
+                region = padded_image[i:i + kernel_height, j:j + kernel_width]
+                eroded_image[i, j] = np.min(region * kernel)
+
+        return eroded_image
+
+    # Morfolojik İşlmeler Butonu - 4
+    def opening(self, binary_image, kernel):
+        """
+        Açma (Opening) işlemi: Aşınma ardından genişleme
+        """
+        eroded = self.erosion(binary_image, kernel)
+        opened_image = self.dilation(eroded, kernel)
+        return opened_image
+
+    # Morfolojik İşlmeler Butonu - 5
+    def closing(self, binary_image, kernel):
+        """
+        Kapama (Closing) işlemi: Genişleme ardından aşınma
+        """
+        dilated = self.dilation(binary_image, kernel)
+        closed_image = self.erosion(dilated, kernel)
+        return closed_image
+
+    # Görsel Aritmetik İşlemler Pencere Butonu
+    def open_arithmetic_window(self):
+        self.arithmetic_window = ArithmeticWindow()
+        self.arithmetic_window.show()
+
+    # Gürültü Pencere Butonu
+    def open_noise_window(self):
+        self.gurultu_window = NoiseAdd()
+        self.gurultu_window.show()
+
+    # Görüntü Yaklaş/Uzaklaş Pencere Butonu
+    def open_zoom_dialog(self):
+        self.zoom_dialog = ZoomWindow()
+        self.zoom_dialog.show()
+
+    # Histogram Eşitleme Butonu
+    def histogram_equalization(self):
+        if self.image is not None:
+            # 1. Grayscale görüntü oluşturma
+            gray_image = np.dot(self.image[..., :3], [0.299, 0.587, 0.114])
+
+            # 2. Kullanıcıdan min ve max değerlerini al
+            min_val, ok1 = QInputDialog.getInt(self, "Histogram Parametreleri", "Minimum Değer Girin (0-255)", 0, 0,
+                                               255, 1)
+            max_val, ok2 = QInputDialog.getInt(self, "Histogram Parametreleri", "Maksimum Değer Girin (0-255)", 255, 0,
+                                               255, 1)
+
+            if ok1 and ok2:
+                # 3. Histogram hesaplama ve normalizasyon
+                hist, bins = np.histogram(gray_image.flatten(), 256, [0, 256])
+                cdf = hist.cumsum()  # Kümülatif dağılım fonksiyonu
+                cdf_normalized = cdf * (max_val - min_val) / cdf[-1] + min_val  # Normalize et
+
+                # 4. Histogram germe
+                img_equalized = np.interp(gray_image.flatten(), bins[:-1], cdf_normalized)
+                img_equalized = img_equalized.reshape(gray_image.shape)
+
+                # 5. RGB'ye dönüşüm
+                equalized_image = np.stack((img_equalized,) * 3, axis=-1)
+
+                # 6. Histogramları çizme
+                self.plot_histogram(gray_image, equalized_image)
+
+                # 7. Görüntüleri gösterme
+                self.display_image(equalized_image.astype(np.uint8))
+
+    # Histogram Çizdirme
+    def plot_histogram(self, original_image, equalized_image):
+        # 1. Orijinal ve eşitlenmiş histogramları hesapla
+        hist_orig, bins_orig = np.histogram(original_image.flatten(), 256, [0, 256])
+        hist_equalized, bins_equalized = np.histogram(equalized_image.flatten(), 256, [0, 256])
+
+        # 2. Histogramları çiz
+        self.histogram_canvas.axes.clear()
+        self.histogram_canvas.axes.plot(bins_orig[:-1], hist_orig, color='blue', label='Orijinal Histogram')
+        self.histogram_canvas.axes.plot(bins_equalized[:-1], hist_equalized, color='red', label='Eşitlenmiş Histogram')
+        self.histogram_canvas.axes.legend()
+        self.histogram_canvas.draw()
 
     def add_salt_and_pepper_noise(self, image, noise_ratio):
         row, col, ch = image.shape
@@ -1120,177 +1329,6 @@ class ImageProcessorApp(QMainWindow):
         # 6. Sonucu görüntüle
         self.display_image(filtered_image)
 
-    def apply_motion_blur(self):
-        if self.image is None:
-            return
-
-        # Kullanıcıdan kernel boyutunu al
-        kernel_size, ok1 = QInputDialog.getInt(self, "Kernel Boyutu", "Kernel boyutunu girin (tek sayı):", 5, 1, 15)
-        if not ok1:
-            return
-
-        # Kullanıcıdan hareket yönünü al
-        direction, ok2 = QInputDialog.getItem(self, "Hareket Yönü", "Hareket yönünü seçin:",
-                                              ["Yatay", "Dikey", "Özel Açılı"], 0, False)
-        if not ok2:
-            return
-
-        if direction == "Yatay":
-            kernel = self.create_motion_kernel(kernel_size, "horizontal")
-        elif direction == "Dikey":
-            kernel = self.create_motion_kernel(kernel_size, "vertical")
-        else:
-            # Kullanıcıdan açı girilsin
-            angle, ok3 = QInputDialog.getInt(self, "Açı", "Hareket açısını girin (0-180):", 45, 0, 180)
-            if not ok3:
-                return
-            kernel = self.create_motion_kernel(kernel_size, angle)
-
-        # Uygulanan kernel ile konvolüsyon işlemi
-        blurred_image = self.apply_convolution(self.image, kernel)
-
-        self.image = blurred_image
-        self.display_image(blurred_image)
-
-    def create_motion_kernel(self, size, direction_or_angle):
-        # Hareket yönüne veya açıya göre kernel oluşturma
-        kernel = np.zeros((size, size))
-
-        if direction_or_angle == "horizontal":
-            kernel[int((size - 1) / 2), :] = np.ones(size)  # Yatay hareket
-        elif direction_or_angle == "vertical":
-            kernel[:, int((size - 1) / 2)] = np.ones(size)  # Dikey hareket
-        else:
-            # Açıya göre kernel oluşturma
-            angle = np.deg2rad(direction_or_angle)
-            center = size // 2
-            for i in range(size):
-                for j in range(size):
-                    dx = int(np.cos(angle) * (i - center) - np.sin(angle) * (j - center))
-                    dy = int(np.sin(angle) * (i - center) + np.cos(angle) * (j - center))
-                    if 0 <= dx + center < size and 0 <= dy + center < size:
-                        kernel[dx + center, dy + center] = 1
-
-        # Kernel toplamını normalize et (toplam 1 olsun)
-        return kernel / np.sum(kernel)
-
-    def apply_convolution(self, image, kernel):
-        # Görüntüye konvolüsyon işlemi yapan fonksiyon
-        height, width, channels = image.shape
-        kernel_height, kernel_width = kernel.shape
-        pad_height = kernel_height // 2
-        pad_width = kernel_width // 2
-
-        # Görüntüye padding ekle
-        padded_image = np.pad(image, ((pad_height, pad_height), (pad_width, pad_width), (0, 0)), mode='constant',
-                              constant_values=0)
-
-        # Çıktı görüntüsünü oluştur
-        output = np.zeros_like(image)
-
-        for i in range(height):
-            for j in range(width):
-                for k in range(channels):
-                    # Kernel'i görüntü üzerinde kaydır
-                    region = padded_image[i:i + kernel_height, j:j + kernel_width, k]
-                    output[i, j, k] = np.sum(region * kernel)
-
-        return output.astype(np.uint8)
-
-    def dilation(self, binary_image, kernel):
-        """
-        Genişleme (Dilation) işlemi
-        """
-        image_height, image_width = binary_image.shape
-        kernel_height, kernel_width = kernel.shape
-        pad_height = kernel_height // 2
-        pad_width = kernel_width // 2
-
-        # Görüntüye padding ekliyoruz
-        padded_image = np.pad(binary_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant',
-                              constant_values=0)
-
-        dilated_image = np.zeros_like(binary_image)
-
-        for i in range(image_height):
-            for j in range(image_width):
-                region = padded_image[i:i + kernel_height, j:j + kernel_width]
-                dilated_image[i, j] = np.max(region * kernel)
-
-        return dilated_image
-
-    def erosion(self, binary_image, kernel):
-        """
-        Aşınma (Erosion) işlemi
-        """
-        image_height, image_width = binary_image.shape
-        kernel_height, kernel_width = kernel.shape
-        pad_height = kernel_height // 2
-        pad_width = kernel_width // 2
-
-        # Görüntüye padding ekliyoruz
-        padded_image = np.pad(binary_image, ((pad_height, pad_height), (pad_width, pad_width)), mode='constant',
-                              constant_values=0)
-
-        eroded_image = np.zeros_like(binary_image)
-
-        for i in range(image_height):
-            for j in range(image_width):
-                region = padded_image[i:i + kernel_height, j:j + kernel_width]
-                eroded_image[i, j] = np.min(region * kernel)
-
-        return eroded_image
-
-    def opening(self, binary_image, kernel):
-        """
-        Açma (Opening) işlemi: Aşınma ardından genişleme
-        """
-        eroded = self.erosion(binary_image, kernel)
-        opened_image = self.dilation(eroded, kernel)
-        return opened_image
-
-    def closing(self, binary_image, kernel):
-        """
-        Kapama (Closing) işlemi: Genişleme ardından aşınma
-        """
-        dilated = self.dilation(binary_image, kernel)
-        closed_image = self.erosion(dilated, kernel)
-        return closed_image
-
-    def apply_morphological_operations(self):
-        if self.image is None:
-            return
-
-        # Kullanıcıdan işlem türünü al
-        operation, ok1 = QInputDialog.getItem(self, "İşlem Türü", "İşlem türünü seçin:",
-                                              ["Genişleme", "Aşınma", "Açma", "Kapama"], 0, False)
-        if not ok1:
-            return
-
-        # Kullanıcıdan kernel boyutunu al
-        kernel_size, ok2 = QInputDialog.getInt(self, "Kernel Boyutu", "Kernel boyutunu girin (tek sayı):", 3, 1, 15)
-        if not ok2:
-            return
-
-        # Gri tonlama (binary image) öncesi kontrol
-        gray = self.convert_to_grayscale_array(self.image)  # Gri tonlama işlemi
-        binary_image = self.binarize_image(gray, threshold_value=127)  # İkili (binary) dönüşüm
-
-        # Kernel oluşturma
-        kernel = np.ones((kernel_size, kernel_size), np.uint8)
-
-        # Seçilen işleme göre fonksiyon çağrılır
-        if operation == "Genişleme":
-            result_image = self.dilation(binary_image, kernel)
-        elif operation == "Aşınma":
-            result_image = self.erosion(binary_image, kernel)
-        elif operation == "Açma":
-            result_image = self.opening(binary_image, kernel)
-        elif operation == "Kapama":
-            result_image = self.closing(binary_image, kernel)
-
-        self.image = result_image
-        self.display_image(result_image)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
